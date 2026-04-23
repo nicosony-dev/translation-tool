@@ -294,12 +294,7 @@
     let lastTranslatedText = '';
 
     // Check if PIN is in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlPin = urlParams.get('pin');
-    
-    if (urlPin) {
-      document.getElementById('pinInput').value = urlPin;
-    }
+   
 
     window.joinSession = function() {
       const pin = document.getElementById('pinInput').value.trim();
