@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presenter View - District 87 Translation</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #542a7d;
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      text-align: center;
+      border-bottom: 4px solid #FCBA03;
+    }
+
+    .title {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #FCBA03;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      padding: 30px;
+      gap: 30px;
+    }
+
+    .left-panel {
+      flex: 1;
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      color: #333;
+    }
+
+    .right-panel {
+      width: 350px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .qr-container {
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      margin: 20px 0;
+    }
+
+    #qrcode {
+      display: flex;
+      justify-content: center;
+    }
+
+    .pin-display {
+      background: #FCBA03;
+      color: #542a7d;
+      padding: 20px;
+      border-radius: 15px;
+      margin: 20px 0;
+    }
+
+    .pin-number {
+      font-size: 3rem;
+      font-weight: bold;
+      letter-spacing: 8px;
+    }
+
+    .connection-count {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+
+    .connection-count strong {
+      font-size: 2rem;
+      color: #FCBA03;
+    }
+
+    .start-btn {
+      background: #FCBA03;
+      color: #542a7d;
+      border: none;
+      padding: 15px 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .start-btn:hover {
+      background: #e3a803;
+    }
+
+    .start-btn.listening {
+      background: #f44336;
+      color: white;
+    }
+
+    .transcript-box {
+      background: #f5f5f5;
+      border: 3px solid #542a7d;
+      border-radius: 15px;
+      padding: 25px;
+      min-height: 200px;
+      font-size: 1.5rem;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .label {
+      color: #542a7d;
+      font-weight: bold;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+
+    .instructions {
+      background: rgba(252, 186, 3, 0.2);
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border: 2px solid #FCBA03;
+    }
+
+    .status {
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+
+    .status.listening {
+      background: rgba(76, 175, 80, 0.3);
+      border: 2px solid #4CAF50;
+    }
+
+    @media (max-width: 968px) {
+      .main-content {
+        flex-direction: column;
+      }
+      .right-panel {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">🎤 School District 87 - Presenter View</div>
+  </div>
+
+  <div class="main-content">
+    <div class="left-panel">
+      <div class="label">Instructions</div>
+      <div class="instructions">
+        Click "START PRESENTING" below. Speak clearly into your microphone. 
+        Audience members will scan the QR code to receive live translations on their phones.
+      </div>
+
+      <button class="start-btn" id="startBtn" onclick="togglePresenting()">
+        START PRESENTING
+      </button>
+
+      <div class="label">What You're Saying (Live Transcript)</div>
+      <div class="transcript-box" id="transcript">
+        Your speech will appear here...
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <h2 style="color: #FCBA03; margin-bottom: 20px;">Audience Join Info</h2>
+      
+      <div class="qr-container">
+        <div id="qrcode"></div>
+      </div>
+
+      <div class="pin-display">
+        <div style="font-size: 0.9rem; margin-bottom: 5px;">SESSION PIN</div>
+        <div class="pin-number" id="pinDisplay">----</div>
+      </div>
+
+      <div class="connection-count">
+        <div style="font-size: 0.9rem; margin-bottom: 5px;">People Connected</div>
+        <div><strong id="connectionCount">0</strong></div>
+      </div>
+
+      <div id="status" class="status" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getDatabase, ref, set, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+    // PASTE YOUR FIREBASE CONFIG HERE
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBi4kd19CAVxOIdZ5SADWLVyX4ozSio1Ss",
+      authDomain: "district87-translation.firebaseapp.com",
+      databaseURL: "https://district87-translation-default-rtdb.firebaseio.com",
+      projectId: "district87-translation",
+      storageBucket: "district87-translation.firebasestorage.app",
+      messagingSenderId: "191653187271",
+      appId: "1:191653187271:web:4cd11aa2134a7618a338e2"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let recognition;
+    let isPresenting = false;
+    let sessionPin = generatePin();
+    let audienceUrl = '';
+
+    function generatePin() {
+      return Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    window.addEventListener('load', function() {
+      const baseUrl = window.location.origin + window.location.pathname.replace('presenter.html', '');
+      audienceUrl = baseUrl + 'audience.html?pin=' + sessionPin;
+      
+      document.getElementById('pinDisplay').textContent = sessionPin;
+      
+      new QRCode(document.getElementById("qrcode"), {
+        text: audienceUrl,
+        width: 200,
+        height: 200
+      });
+
+      onValue(ref(db, `sessions/${sessionPin}/connections`), (snapshot) => {
+        const connections = snapshot.val() || {};
+        const count = Object.keys(connections).length;
+        document.getElementById('connectionCount').textContent = count;
+      });
+
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Speech recognition not supported. Please use Chrome, Edge, or Safari.');
+      }
+    });
+
+    function initRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = function() {
+        document.getElementById('status').textContent = '🎤 Listening...';
+        document.getElementById('status').className = 'status listening';
+        document.getElementById('status').style.display = 'block';
+      };
+
+      recognition.onresult = function(event) {
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          }
+        }
+
+        if (finalTranscript) {
+          const text = finalTranscript.trim();
+          document.getElementById('transcript').textContent = text;
+          
+          set(ref(db, `sessions/${sessionPin}/currentText`), {
+            text: text,
+            timestamp: Date.now()
+          });
+        }
+      };
+
+      recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          alert('Microphone access denied. Please allow microphone access.');
+          stopPresenting();
+        }
+      };
+
+      recognition.onend = function() {
+        if (isPresenting) {
+          recognition.start();
+        }
+      };
+    }
+
+    window.togglePresenting = async function() {
+      if (!isPresenting) {
+        await startPresenting();
+      } else {
+        stopPresenting();
+      }
+    };
+
+    async function startPresenting() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (!recognition) {
+          initRecognition();
+        }
+        
+        recognition.start();
+        isPresenting = true;
+        
+        const btn = document.getElementById('startBtn');
+        btn.textContent = 'STOP PRESENTING';
+        btn.classList.add('listening');
+        
+        set(ref(db, `sessions/${sessionPin}/active`), true);
+        
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Could not access microphone: ' + error.message);
+      }
+    }
+
+    function stopPresenting() {
+      if (recognition) {
+        recognition.stop();
+      }
+      isPresenting = false;
+      
+      const btn = document.getElementById('startBtn');
+      btn.textContent = 'START PRESENTING';
+      btn.classList.remove('listening');
+      
+      document.getElementById('status').style.display = 'none';
+      
+      remove(ref(db, `sessions/${sessionPin}`));
+    }
+
+    window.addEventListener('beforeunload', function() {
+      if (isPresenting) {
+        remove(ref(db, `sessions/${sessionPin}`));
+      }
+    });
+  </script>
+</body>
+</html>
